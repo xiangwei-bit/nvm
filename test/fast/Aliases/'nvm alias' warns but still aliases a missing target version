@@ -1,0 +1,33 @@
+#!/bin/sh
+
+export NVM_DIR="$(cd ../../.. && pwd)"
+
+: nvm.sh
+\. ../../../nvm.sh
+
+\. ../../common.sh
+
+ALIAS_NAME='test-missing-target'
+ALIAS_FILE="${NVM_DIR}/alias/${ALIAS_NAME}"
+
+cleanup () {
+  rm -f "${ALIAS_FILE}"
+}
+die () { echo "$@" ; cleanup ; exit 1; }
+
+cleanup # start from a known-clean state
+
+# Aliasing to a version that is not installed is allowed on purpose (you may
+# alias ahead of installing). It must warn on stderr but NOT fail, and the
+# alias file must still be written verbatim so the default behavior is intact.
+try_err nvm alias "${ALIAS_NAME}" nonexistent.invalid
+EXPECTED_OUTPUT="! WARNING: Version 'nonexistent.invalid' does not exist."
+[ "$CAPTURED_STDERR" = "$EXPECTED_OUTPUT" ] || die "aliasing a missing version should warn '$EXPECTED_OUTPUT', got '$CAPTURED_STDERR'"
+[ "$CAPTURED_EXIT_CODE" = "0" ] || die "aliasing a missing version should still succeed (exit 0), got '$CAPTURED_EXIT_CODE'"
+
+[ -f "${ALIAS_FILE}" ] || die "the alias file '${ALIAS_FILE}' should have been created despite the warning"
+
+ALIAS_CONTENTS="$(cat "${ALIAS_FILE}")"
+[ "${ALIAS_CONTENTS}" = "nonexistent.invalid" ] || die "the alias should record the target verbatim 'nonexistent.invalid', got '${ALIAS_CONTENTS}'"
+
+cleanup

@@ -1,0 +1,21 @@
+#!/bin/sh
+
+: nvm.sh
+\. ../../../nvm.sh
+
+\. ../../common.sh
+
+die () { echo "$@" ; exit 1; }
+
+# An unknown option must be rejected with a focused message that echoes the
+# offending flag, and exit 55 (never silently treated as an alias name).
+try_err nvm alias --bogus
+EXPECTED_OUTPUT='Unsupported option "--bogus".'
+[ "$CAPTURED_STDERR" = "$EXPECTED_OUTPUT" ] || die "'nvm alias --bogus' should fail with '$EXPECTED_OUTPUT', got '$CAPTURED_STDERR'"
+[ "$CAPTURED_EXIT_CODE" = "55" ] || die "'nvm alias --bogus' should exit 55, got '$CAPTURED_EXIT_CODE'"
+
+# The message must reflect the actual flag passed, not a hard-coded string.
+try_err nvm alias --xyz
+EXPECTED_OUTPUT='Unsupported option "--xyz".'
+[ "$CAPTURED_STDERR" = "$EXPECTED_OUTPUT" ] || die "'nvm alias --xyz' should fail with '$EXPECTED_OUTPUT', got '$CAPTURED_STDERR'"
+[ "$CAPTURED_EXIT_CODE" = "55" ] || die "'nvm alias --xyz' should exit 55, got '$CAPTURED_EXIT_CODE'"
