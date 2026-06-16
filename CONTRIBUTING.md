@@ -43,7 +43,7 @@ Please refer to the [README](README.md) for complete instructions how to install
 #### Before creating a pull request
 
   - Please include tests. Changes with tests will be merged very quickly.
-  - Please manually confirm that your changes work in `bash`, `sh`/`dash`, `ksh`, and `zsh`. Fast tests do run in these shells, but it's nice to manually verify also.
+  - Please manually confirm that your changes work in `bash`, `sh`/`dash`, `ksh`, and `zsh`. The fast tests run automatically in `bash`, `sh`/`dash`, and `zsh`; `ksh` is experimental and not run automatically (see #574), so please verify it manually.
   - Please maintain consistent whitespace - 2-space indentation, trailing newlines in all files, etc.
   - Any time you make a change to your PR, please rebase freshly on top of the default branch. Nobody likes merge commits.
 
