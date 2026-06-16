@@ -1,0 +1,49 @@
+#!/bin/sh
+
+die () { echo "$@" ; exit 1; }
+
+: nvm.sh
+\. ../../../nvm.sh
+
+# The defining behavior of the "or equal to" variant: equal versions are >=.
+# (nvm_version_greater returns false here; this is the only difference in contract.)
+nvm_version_greater_than_or_equal_to 0.10.0 0.10.0 || die '"nvm_version_greater_than_or_equal_to 0.10.0 0.10.0" did not return true for equal versions'
+
+nvm_version_greater_than_or_equal_to 5.0.0 5.0.0 || die '"nvm_version_greater_than_or_equal_to 5.0.0 5.0.0" did not return true for equal versions'
+
+# Components are compared numerically, not lexically: 10 >= 2, not "10" < "2".
+nvm_version_greater_than_or_equal_to 0.10.0 0.2.0 || die '"nvm_version_greater_than_or_equal_to 0.10.0 0.2.0" did not return true'
+
+nvm_version_greater_than_or_equal_to 0.10.0 0.2.12 || die '"nvm_version_greater_than_or_equal_to 0.10.0 0.2.12" did not return true'
+
+# A strictly greater version is >=.
+nvm_version_greater_than_or_equal_to 0.10.0 0.9.5 || die '"nvm_version_greater_than_or_equal_to 0.10.0 0.9.5" did not return true'
+
+nvm_version_greater_than_or_equal_to 6.0.0 5.0.0 || die '"nvm_version_greater_than_or_equal_to 6.0.0 5.0.0" did not return true'
+
+# A strictly lesser version is not >=.
+if nvm_version_greater_than_or_equal_to 0.2.0 0.10.0; then
+  die '"nvm_version_greater_than_or_equal_to 0.2.0 0.10.0" returned true'
+fi
+
+if nvm_version_greater_than_or_equal_to 0.9.5 0.10.0; then
+  die '"nvm_version_greater_than_or_equal_to 0.9.5 0.10.0" returned true'
+fi
+
+if nvm_version_greater_than_or_equal_to 5.0.0 6.0.0; then
+  die '"nvm_version_greater_than_or_equal_to 5.0.0 6.0.0" returned true'
+fi
+
+# A leading "v" is stripped from either argument before comparison.
+nvm_version_greater_than_or_equal_to v7.21.0 7.21.0 || die '"nvm_version_greater_than_or_equal_to v7.21.0 7.21.0" did not return true'
+
+nvm_version_greater_than_or_equal_to v6.0.0 v5.0.0 || die '"nvm_version_greater_than_or_equal_to v6.0.0 v5.0.0" did not return true'
+
+# A missing argument on either side is an error (false), not an accidental match.
+if nvm_version_greater_than_or_equal_to '' 1.0.0; then
+  die '"nvm_version_greater_than_or_equal_to (empty) 1.0.0" returned true'
+fi
+
+if nvm_version_greater_than_or_equal_to 1.0.0 ''; then
+  die '"nvm_version_greater_than_or_equal_to 1.0.0 (empty)" returned true'
+fi
