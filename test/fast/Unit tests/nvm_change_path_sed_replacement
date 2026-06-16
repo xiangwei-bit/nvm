@@ -1,0 +1,90 @@
+#!/bin/sh
+
+die () { echo "$@" ; exit 1; }
+
+: nvm.sh
+\. ../../../nvm.sh
+
+# ============================================================================
+# Regression test: nvm_change_path sed in-place replacement branch
+#
+# nvm_change_path() has four branches:
+#   1. PATH is empty         -> return supplementary path directly
+#   2. PATH has no nvm entry -> prepend supplementary path
+#   3. PATH has system bin BEFORE nvm entry -> prepend (issue #1652)
+#   4. PATH has nvm entry, no system bin prefix -> sed in-place replacement
+#
+# Branch 4 is the MOST commonly exercised path in real usage (switching
+# between Node versions via `nvm use` when one is already active), yet
+# the existing test file (test/fast/Unit tests/nvm_change_path) has ZERO
+# coverage for it:
+#   - Tests 1-3: PATH=/usr/bin:/usr/local/bin (no nvm entry -> branch 2)
+#   - Test 4: PATH has /usr/bin BEFORE nvm entry -> branch 3
+#
+# This test protects the sed replacement branch against regressions.
+# ============================================================================
+
+# --- Test 1: sed branch, new-style version directory ---
+# PATH contains an existing nvm versions/node path WITHOUT any system bin
+# path preceding it. This MUST trigger sed in-place replacement, NOT prepend.
+#
+# Why this matters: if a future change accidentally routes this to the prepend
+# branch, the old nvm path remains in PATH, causing the wrong node version to
+# be found by `which node` and breaking version switching.
+
+TEST_PATH="/home/user/app/node_modules/.bin:${NVM_DIR}/versions/node/v16.0.0/bin:/usr/bin"
+NEW_PATH=$(nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/versions/node/v18.0.0")
+EXPECTED="/home/user/app/node_modules/.bin:${NVM_DIR}/versions/node/v18.0.0/bin:/usr/bin"
+[ "$NEW_PATH" = "$EXPECTED" ] || die "sed replacement (new-style) failed:
+  expected: $EXPECTED
+  got:      $NEW_PATH"
+
+# --- Test 2: sed branch, old-style version directory ---
+# Same scenario but with pre-v1 style directory layout.
+
+TEST_PATH="/home/user/app/node_modules/.bin:${NVM_DIR}/v0.12.0/bin:/usr/bin"
+NEW_PATH=$(nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/versions/node/v20.0.0")
+EXPECTED="/home/user/app/node_modules/.bin:${NVM_DIR}/versions/node/v20.0.0/bin:/usr/bin"
+[ "$NEW_PATH" = "$EXPECTED" ] || die "sed replacement (old-style) failed:
+  expected: $EXPECTED
+  got:      $NEW_PATH"
+
+# --- Test 3: sed branch, nvm path at the start of PATH ---
+# nvm path is the FIRST entry. sed replacement must still work.
+# If someone "simplifies" the sed patterns, this positional edge case breaks.
+
+TEST_PATH="${NVM_DIR}/versions/node/v16.0.0/bin:/usr/bin:/usr/local/bin"
+NEW_PATH=$(nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/versions/node/v18.0.0")
+EXPECTED="${NVM_DIR}/versions/node/v18.0.0/bin:/usr/bin:/usr/local/bin"
+[ "$NEW_PATH" = "$EXPECTED" ] || die "sed replacement (nvm first) failed:
+  expected: $EXPECTED
+  got:      $NEW_PATH"
+
+# --- Test 4: sed branch with /share/man suffix ---
+# nvm_change_path is also called with "/share/man" suffix for man pages.
+# The sed pattern uses ${2-} to match the suffix. This test ensures the
+# suffix handling in the sed branch works correctly.
+
+TEST_PATH="${NVM_DIR}/versions/node/v16.0.0/share/man:/usr/share/man"
+NEW_PATH=$(nvm_change_path "$TEST_PATH" "/share/man" "$NVM_DIR/versions/node/v18.0.0")
+EXPECTED="${NVM_DIR}/versions/node/v18.0.0/share/man:/usr/share/man"
+[ "$NEW_PATH" = "$EXPECTED" ] || die "sed replacement (/share/man suffix) failed:
+  expected: $EXPECTED
+  got:      $NEW_PATH"
+
+# --- Test 5: NVM_DIR with spaces (common on macOS) ---
+# e.g., NVM_DIR="/Users/John Smith/.nvm"
+# Spaces in NVM_DIR should not break grep matching or sed replacement.
+# nvm_strip_path already has a regex-special-char NVM_DIR test, but
+# nvm_change_path uses grep/sed (not awk index), so spaces need explicit
+# verification here.
+
+ORIG_NVM_DIR="$NVM_DIR"
+NVM_DIR='/home/my user/.nvm'
+TEST_PATH="/other/stuff:${NVM_DIR}/versions/node/v16.0.0/bin:/usr/bin"
+NEW_PATH=$(nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/versions/node/v18.0.0")
+EXPECTED="/other/stuff:${NVM_DIR}/versions/node/v18.0.0/bin:/usr/bin"
+[ "$NEW_PATH" = "$EXPECTED" ] || die "sed replacement (NVM_DIR with spaces) failed:
+  expected: $EXPECTED
+  got:      $NEW_PATH"
+NVM_DIR="$ORIG_NVM_DIR"
