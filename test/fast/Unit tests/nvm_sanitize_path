@@ -1,0 +1,62 @@
+#!/bin/sh
+
+die () { echo "$@" ; exit 1; }
+
+: nvm.sh
+\. ../../../nvm.sh
+
+# nvm_sanitize_path scrubs $NVM_DIR and $HOME out of strings before they are
+# printed in error messages and `nvm debug` output, so a user's real home /
+# install paths do not leak into screenshots, CI logs, or bug reports.
+# A regression here is invisible (nothing breaks, output still prints) but
+# defeats the privacy guarantee, so it is worth pinning down explicitly.
+
+#
+# Group 1: $NVM_DIR set independently of $HOME
+#
+HOME='/home/testuser'
+NVM_DIR='/opt/nvm'
+
+# An embedded $NVM_DIR must be replaced by the literal placeholder.
+OUT="$(nvm_sanitize_path '/opt/nvm/versions/node/v18/bin')"
+[ "${OUT}" = '${NVM_DIR}/versions/node/v18/bin' ] \
+  || die "NVM_DIR not sanitized (leak risk): ${OUT}"
+
+# Every occurrence must be replaced, not just the first (the sed 'g' flag).
+OUT="$(nvm_sanitize_path '/opt/nvm/a:/opt/nvm/b')"
+[ "${OUT}" = '${NVM_DIR}/a:${NVM_DIR}/b' ] \
+  || die "NVM_DIR not sanitized for every occurrence (leak risk): ${OUT}"
+
+# An embedded $HOME must be replaced by the literal placeholder.
+OUT="$(nvm_sanitize_path '/home/testuser/project')"
+[ "${OUT}" = '${HOME}/project' ] \
+  || die "HOME not sanitized (leak risk): ${OUT}"
+
+# When the whole string IS exactly $NVM_DIR, it is left as the real path so
+# that `nvm debug` lines like "\${NVM_DIR}: '...'" stay informative.
+OUT="$(nvm_sanitize_path '/opt/nvm')"
+[ "${OUT}" = '/opt/nvm' ] \
+  || die "exact NVM_DIR should be left raw for debug output: ${OUT}"
+
+# Likewise, when the whole string IS exactly $HOME it is left as the real path.
+OUT="$(nvm_sanitize_path '/home/testuser')"
+[ "${OUT}" = '/home/testuser' ] \
+  || die "exact HOME should be left raw for debug output: ${OUT}"
+
+#
+# Group 2: $NVM_DIR nested under $HOME (the realistic default, e.g. ~/.nvm)
+#
+HOME='/home/testuser'
+NVM_DIR='/home/testuser/.nvm'
+
+# $NVM_DIR must be substituted BEFORE $HOME. If the order ever reversed, this
+# path would come out as '${HOME}/.nvm/versions/...' instead, which both leaks
+# the layout and produces noisier output. This pins the substitution order.
+OUT="$(nvm_sanitize_path '/home/testuser/.nvm/versions/node/v18/bin')"
+[ "${OUT}" = '${NVM_DIR}/versions/node/v18/bin' ] \
+  || die "NVM_DIR must be sanitized before HOME (order regression): ${OUT}"
+
+# A path under $HOME but outside $NVM_DIR must still have $HOME scrubbed.
+OUT="$(nvm_sanitize_path '/home/testuser/Desktop/secret')"
+[ "${OUT}" = '${HOME}/Desktop/secret' ] \
+  || die "HOME not sanitized for path outside NVM_DIR (leak risk): ${OUT}"
