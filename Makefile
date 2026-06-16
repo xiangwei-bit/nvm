@@ -1,6 +1,6 @@
 	# Since we rely on paths relative to the makefile location, abort if make isn't being run from there.
 $(if $(findstring /,$(MAKEFILE_LIST)),$(error Please only invoke this makefile from the directory it resides in))
-	# Note: With Travis CI:
+	# Note: In CI:
 	#  - the path to urchin is passed via the command line.
 	#  - the other utilities are NOT needed, so we skip the test for their existence.
 URCHIN := urchin
@@ -37,13 +37,13 @@ list:
 	@$(MAKE) -pRrn : -f $(MAKEFILE_LIST) 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | sort
 
 # Set of test-<shell> targets; each runs the specified test suites for a single shell.
-# Note that preexisting NVM_* variables are unset to avoid interfering with tests, except when running the Travis tests (where NVM_DIR must be passed in and the env. is assumed to be pristine).
+# Note that preexisting NVM_* variables are unset to avoid interfering with tests, except when running in CI (where NVM_DIR must be passed in and the env. is assumed to be pristine).
 .PHONY: $(SHELL_TARGETS)
 $(SHELL_TARGETS):
 	@shell='$@'; shell=$${shell##*-}; \
 	which "$$shell" >/dev/null || { printf '\033[0;31m%s\033[0m\n' "WARNING: Cannot test with shell '$$shell': not found." >&2; exit 0; } && \
 	printf '\n\033[0;34m%s\033[0m\n' "Running tests in $$shell"; \
-	[ -z "$$TRAVIS_BUILD_DIR" ] && [ -z "$$GITHUB_ACTIONS" ] && for v in $$(set | awk -F'=' '$$1 ~ "^NVM_" { print $$1 }'); do unset $$v; done && unset v; \
+	[ -z "$$GITHUB_ACTIONS" ] && for v in $$(set | awk -F'=' '$$1 ~ "^NVM_" { print $$1 }'); do unset $$v; done && unset v; \
 	for suite in $(TEST_SUITE); do \
 		echo "Running test suite: $$suite"; \
 		$(URCHIN) -f -s $$shell test/$$suite || exit; \
