@@ -29,10 +29,10 @@ $(nvm_supports_xz "v0.12.7") && \
 
 # set up for a failure by having a minimal toolset available
 # but remove xz
-ln -s /usr/bin/which $TEST_PATH/which
-ln -s /usr/bin/command $TEST_PATH/command
-ln -s /usr/bin/awk $TEST_PATH/awk
-ln -s $(which rm) $TEST_PATH/rm
+ln -s "$(which which)" "$TEST_PATH/which"
+ln -s "$(which command)" "$TEST_PATH/command"
+ln -s "$(which awk)" "$TEST_PATH/awk"
+ln -s "$(which rm)" "$TEST_PATH/rm"
 
 export PATH=$TEST_PATH
 rm $TEST_PATH/xz
