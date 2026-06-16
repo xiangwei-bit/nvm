@@ -1,0 +1,25 @@
+#!/bin/sh
+
+: nvm.sh
+\. ../../../nvm.sh
+
+\. ../../common.sh
+
+die () { echo "$@" ; exit 1; }
+
+# Attempting to remove an alias that does not exist should fail with exit 1
+# and a descriptive error on stderr.
+try_err nvm unalias nonexistent_test_alias_xyz
+EXPECTED_STDERR="Alias nonexistent_test_alias_xyz doesn't exist!"
+[ "$CAPTURED_STDERR" = "$EXPECTED_STDERR" ] \
+  || die "nvm unalias of a nonexistent alias should produce '$EXPECTED_STDERR', got '$CAPTURED_STDERR'"
+[ "$CAPTURED_EXIT_CODE" = 1 ] \
+  || die "nvm unalias of a nonexistent alias should exit with code 1, got '$CAPTURED_EXIT_CODE'"
+
+# A second nonexistent alias name should behave identically.
+try_err nvm unalias another_nonexistent_alias_abc
+EXPECTED_STDERR="Alias another_nonexistent_alias_abc doesn't exist!"
+[ "$CAPTURED_STDERR" = "$EXPECTED_STDERR" ] \
+  || die "nvm unalias of a second nonexistent alias should produce '$EXPECTED_STDERR', got '$CAPTURED_STDERR'"
+[ "$CAPTURED_EXIT_CODE" = 1 ] \
+  || die "nvm unalias of a second nonexistent alias should exit with code 1, got '$CAPTURED_EXIT_CODE'"

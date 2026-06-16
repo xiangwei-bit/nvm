@@ -1,0 +1,57 @@
+#!/bin/sh
+
+set -ex
+
+die () { echo "$@" ; cleanup ; exit 1; }
+
+cleanup() {
+  rm -rf "$(nvm_version_path v0.1.2)" 2>/dev/null || true
+  unset -f nvm_has_system_node nvm_has_system_iojs nvm_ls_current 2>/dev/null || true
+}
+
+export NVM_DIR="$(cd ../.. && pwd)"
+
+: nvm.sh
+\. ../../nvm.sh
+
+\. ../common.sh
+
+# Create a fake installed version so we can make it "current".
+make_fake_node v0.1.2
+
+# Stub nvm_ls_current so reinstall-packages believes v0.1.2 is active.
+nvm_ls_current() { nvm_echo 'v0.1.2'; }
+
+# Case 1: reinstalling from the current version should fail with exit 2.
+OUTPUT="$(nvm reinstall-packages v0.1.2 2>&1)" && EXIT_CODE=0 || EXIT_CODE=$?
+EXPECTED='Can not reinstall packages from the current version of node.'
+case "${OUTPUT}" in
+  *"${EXPECTED}"*) ;;
+  *) die "'nvm reinstall-packages v0.1.2' should report '${EXPECTED}', got '${OUTPUT}'" ;;
+esac
+[ "$EXIT_CODE" = 2 ] \
+  || die "'nvm reinstall-packages v0.1.2' should exit with code 2, got '$EXIT_CODE'"
+
+# Same test for the copy-packages alias.
+OUTPUT="$(nvm copy-packages v0.1.2 2>&1)" && EXIT_CODE=0 || EXIT_CODE=$?
+case "${OUTPUT}" in
+  *"${EXPECTED}"*) ;;
+  *) die "'nvm copy-packages v0.1.2' should report '${EXPECTED}', got '${OUTPUT}'" ;;
+esac
+[ "$EXIT_CODE" = 2 ] \
+  || die "'nvm copy-packages v0.1.2' should exit with code 2, got '$EXIT_CODE'"
+
+# Case 2: reinstalling from system with no system node/iojs should fail with exit 3.
+nvm_has_system_node() { return 1; }
+nvm_has_system_iojs() { return 1; }
+
+OUTPUT="$(nvm reinstall-packages system 2>&1)" && EXIT_CODE=0 || EXIT_CODE=$?
+EXPECTED='No system version of node or io.js detected.'
+case "${OUTPUT}" in
+  *"${EXPECTED}"*) ;;
+  *) die "'nvm reinstall-packages system' (no system node) should report '${EXPECTED}', got '${OUTPUT}'" ;;
+esac
+[ "$EXIT_CODE" = 3 ] \
+  || die "'nvm reinstall-packages system' (no system node) should exit with code 3, got '$EXIT_CODE'"
+
+cleanup

@@ -1,0 +1,50 @@
+#!/bin/sh
+
+die () { echo "$@" ; cleanup ; exit 1; }
+
+# Save references to original builtins before stubbing.
+_nvm_orig_command="$(command -v command)"
+
+cleanup() {
+  # Restore the original `command` builtin first so cleanup can use it.
+  unset -f command 2>/dev/null || true
+  if [ -n "${TMP_DIR-}" ]; then
+    chmod -R u+rwX "${TMP_DIR}" 2>/dev/null || true
+    rm -rf "${TMP_DIR}"
+  fi
+}
+
+export NVM_DIR="$(cd ../.. && pwd)"
+
+: nvm.sh
+\. ../../nvm.sh
+
+\. ../common.sh
+
+TMP_DIR="$(mktemp -d)"
+
+# Create the cache directory so the command has something to try to clear.
+mkdir -p "${TMP_DIR}/.cache"
+
+# Stub the `command` builtin so that `command rm -rf ...` (used inside
+# `nvm cache clear`) fails, while all other `command` invocations pass
+# through to the real builtin.
+command() {
+  case "${1-}" in
+    rm) return 1 ;;
+    *) builtin command "$@" ;;
+  esac
+}
+
+# Temporarily point the cache at the temp directory.
+NVM_DIR="${TMP_DIR}"
+
+try_err nvm cache clear
+case "${CAPTURED_STDERR}" in
+  *"Unable to clear nvm cache"*) ;;
+  *) die "'nvm cache clear' with rm failure should report 'Unable to clear nvm cache', got >${CAPTURED_STDERR}<" ;;
+esac
+[ "$CAPTURED_EXIT_CODE" = 1 ] \
+  || die "'nvm cache clear' with rm failure should exit with code 1, got '$CAPTURED_EXIT_CODE'"
+
+cleanup

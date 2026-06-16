@@ -4157,6 +4157,10 @@ nvm() {
           ;;
           --lts) NVM_LTS='*' ; shift ;;
           --lts=*) NVM_LTS="${1##--lts=}" ; shift ;;
+          --*)
+            nvm_err "Unsupported option \"$1\"."
+            return 55
+          ;;
           *)
             if [ -n "$1" ]; then
               break
@@ -4546,7 +4550,7 @@ nvm() {
         esac
 
         nvm_err "Alias ${1-} doesn't exist!"
-        return
+        return 1
       fi
 
       local NVM_ALIAS_ORIGINAL

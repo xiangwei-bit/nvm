@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -ex
+
+die () { echo "$@" ; exit 1; }
+
+export NVM_DIR="$(cd ../.. && pwd)"
+
+: nvm.sh
+\. ../../nvm.sh
+
+\. ../common.sh
+
+# `nvm run --bogus` should reject the unsupported option with exit 55,
+# matching `nvm exec`'s behaviour for unknown --* flags.
+try_err nvm run --bogus
+case "${CAPTURED_STDERR}" in
+  *'Unsupported option "--bogus"'*) ;;
+  *) die "'nvm run --bogus' should report an unsupported option error, got >${CAPTURED_STDERR}<" ;;
+esac
+[ "$CAPTURED_EXIT_CODE" = 55 ] \
+  || die "'nvm run --bogus' should exit with code 55, got '$CAPTURED_EXIT_CODE'"
+
+# A different unsupported option should also be rejected.
+try_err nvm run --nonexistent
+case "${CAPTURED_STDERR}" in
+  *'Unsupported option "--nonexistent"'*) ;;
+  *) die "'nvm run --nonexistent' should report an unsupported option error, got >${CAPTURED_STDERR}<" ;;
+esac
+[ "$CAPTURED_EXIT_CODE" = 55 ] \
+  || die "'nvm run --nonexistent' should exit with code 55, got '$CAPTURED_EXIT_CODE'"
