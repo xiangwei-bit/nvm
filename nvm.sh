@@ -1022,27 +1022,40 @@ nvm_strip_path() {
 }
 
 nvm_change_path() {
-  # if there’s no initial path, just return the supplementary path
+  # Escape NVM_DIR for use in BRE patterns (grep, sed pattern side)
+  local NVM_DIR_BRE
+  NVM_DIR_BRE="$(command printf '%s' "${NVM_DIR}" | command sed 's/[][\\.*^$]/\\&/g')"
+  # Escape NVM_DIR for use in ERE patterns (grep -E)
+  local NVM_DIR_ERE
+  NVM_DIR_ERE="$(command printf '%s' "${NVM_DIR}" | command sed 's/[][\\.+*?(){}|^$]/\\&/g')"
+  # Escape NVM_DIR for use in sed pattern with '#' delimiter (BRE + '#')
+  local NVM_DIR_SED
+  NVM_DIR_SED="$(command printf '%s' "${NVM_DIR}" | command sed 's/[][\\.*^$#]/\\&/g')"
+  # Escape the new version dir for use in sed replacement side
+  local NEW_VER_SED
+  NEW_VER_SED="$(command printf '%s' "${3-}" | command sed 's/[\\&#]/\\&/g')"
+
+  # if there's no initial path, just return the supplementary path
   if [ -z "${1-}" ]; then
     nvm_echo "${3-}${2-}"
-  # if the initial path doesn’t contain an nvm path, prepend the supplementary
+  # if the initial path doesn't contain an nvm path, prepend the supplementary
   # path
-  elif ! nvm_echo "${1-}" | nvm_grep -q "${NVM_DIR}/[^/]*${2-}" \
-    && ! nvm_echo "${1-}" | nvm_grep -q "${NVM_DIR}/versions/[^/]*/[^/]*${2-}"; then
+  elif ! nvm_echo "${1-}" | nvm_grep -q "${NVM_DIR_BRE}/[^/]*${2-}" \
+    && ! nvm_echo "${1-}" | nvm_grep -q "${NVM_DIR_BRE}/versions/[^/]*/[^/]*${2-}"; then
     nvm_echo "${3-}${2-}:${1-}"
   # if the initial path contains BOTH an nvm path (checked for above) and
   # that nvm path is preceded by a system binary path, just prepend the
   # supplementary path instead of replacing it.
   # https://github.com/nvm-sh/nvm/issues/1652#issuecomment-342571223
-  elif nvm_echo "${1-}" | nvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${NVM_DIR}/[^/]*${2-}" \
-    || nvm_echo "${1-}" | nvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${NVM_DIR}/versions/[^/]*/[^/]*${2-}"; then
+  elif nvm_echo "${1-}" | nvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${NVM_DIR_ERE}/[^/]*${2-}" \
+    || nvm_echo "${1-}" | nvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${NVM_DIR_ERE}/versions/[^/]*/[^/]*${2-}"; then
     nvm_echo "${3-}${2-}:${1-}"
   # use sed to replace the existing nvm path with the supplementary path. This
   # preserves the order of the path.
   else
     nvm_echo "${1-}" | command sed \
-      -e "s#${NVM_DIR}/[^/]*${2-}[^:]*#${3-}${2-}#" \
-      -e "s#${NVM_DIR}/versions/[^/]*/[^/]*${2-}[^:]*#${3-}${2-}#"
+      -e "s#${NVM_DIR_SED}/[^/]*${2-}[^:]*#${NEW_VER_SED}${2-}#" \
+      -e "s#${NVM_DIR_SED}/versions/[^/]*/[^/]*${2-}[^:]*#${NEW_VER_SED}${2-}#"
   fi
 }
 
@@ -2961,7 +2974,7 @@ nvm_die_on_prefix() {
       npm config --loglevel=warn delete prefix --userconfig="${NVM_NPM_USER_NPMRC}"
       npm config --loglevel=warn delete globalconfig --userconfig="${NVM_NPM_USER_NPMRC}"
     else
-      nvm_err "Your user’s .npmrc file ($(nvm_sanitize_path "${NVM_NPM_USER_NPMRC}"))"
+      nvm_err "Your user's .npmrc file ($(nvm_sanitize_path "${NVM_NPM_USER_NPMRC}"))"
       nvm_err 'has a `globalconfig` and/or a `prefix` setting, which are incompatible with nvm.'
       nvm_err "Run \`${NVM_COMMAND}\` to unset it."
       return 10

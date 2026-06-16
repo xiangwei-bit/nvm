@@ -56,3 +56,56 @@ NEW_PATH=`nvm_change_path "$MAC_OS_NESTED_SESSION_PATH" "/bin" "$NVM_DIR/version
 NEW_PATH=`nvm_change_path "$MAC_OS_NESTED_SESSION_PATH" "/bin" "$NVM_DIR/v0.1.2"`
 
 [ "$NEW_PATH" = "$NVM_DIR/v0.1.2/bin:/usr/bin:/usr/local/bin:$NVM_DIR/versions/node/v4.5.0/bin" ] || die "Not correctly changed: $NEW_PATH "
+
+
+# MANPATH: /share/man suffix
+TEST_PATH=/usr/share/man:/usr/local/share/man
+
+# New version dir with MANPATH suffix
+NEW_PATH=`nvm_change_path "$TEST_PATH" "/share/man" "$NVM_DIR/versions/node/v7.1.0"`
+
+[ "$NEW_PATH" = "$NVM_DIR/versions/node/v7.1.0/share/man:/usr/share/man:/usr/local/share/man" ] || die "MANPATH not correctly prepended: $NEW_PATH "
+
+# Replace existing nvm MANPATH entry
+TEST_PATH=$NVM_DIR/versions/node/v4.5.0/share/man:/usr/share/man:/usr/local/share/man
+
+NEW_PATH=`nvm_change_path "$TEST_PATH" "/share/man" "$NVM_DIR/versions/node/v7.1.0"`
+
+[ "$NEW_PATH" = "$NVM_DIR/versions/node/v7.1.0/share/man:/usr/share/man:/usr/local/share/man" ] || die "MANPATH not correctly replaced: $NEW_PATH "
+
+
+# NVM_DIR with regex-special characters (mirrors nvm_strip_path test)
+NVM_DIR='/#*.^$[]'
+
+TEST_PATH=$NVM_DIR/versions/node/v4.5.0/bin:/usr/bin:/usr/local/bin
+
+# New version dir (should replace, not prepend)
+NEW_PATH=`nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/versions/node/v7.1.0"`
+
+[ "$NEW_PATH" = "$NVM_DIR/versions/node/v7.1.0/bin:/usr/bin:/usr/local/bin" ] || die "Not correctly changed with regex-special NVM_DIR: $NEW_PATH "
+
+# Old version dir
+NEW_PATH=`nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/v0.1.2"`
+
+[ "$NEW_PATH" = "$NVM_DIR/v0.1.2/bin:/usr/bin:/usr/local/bin" ] || die "Not correctly changed with regex-special NVM_DIR (old): $NEW_PATH "
+
+# No existing nvm path (should prepend)
+TEST_PATH=/usr/bin:/usr/local/bin
+
+NEW_PATH=`nvm_change_path "$TEST_PATH" "/bin" "$NVM_DIR/versions/node/v7.1.0"`
+
+[ "$NEW_PATH" = "$NVM_DIR/versions/node/v7.1.0/bin:/usr/bin:/usr/local/bin" ] || die "Not correctly prepended with regex-special NVM_DIR: $NEW_PATH "
+
+# macOS nested session with regex-special NVM_DIR
+MAC_OS_NESTED_SESSION_PATH=/usr/bin:/usr/local/bin:$NVM_DIR/versions/node/v4.5.0/bin
+
+NEW_PATH=`nvm_change_path "$MAC_OS_NESTED_SESSION_PATH" "/bin" "$NVM_DIR/versions/node/v7.1.0"`
+
+[ "$NEW_PATH" = "$NVM_DIR/versions/node/v7.1.0/bin:/usr/bin:/usr/local/bin:$NVM_DIR/versions/node/v4.5.0/bin" ] || die "Not correctly changed with regex-special NVM_DIR (nested): $NEW_PATH "
+
+# MANPATH with regex-special NVM_DIR
+TEST_PATH=$NVM_DIR/versions/node/v4.5.0/share/man:/usr/share/man
+
+NEW_PATH=`nvm_change_path "$TEST_PATH" "/share/man" "$NVM_DIR/versions/node/v7.1.0"`
+
+[ "$NEW_PATH" = "$NVM_DIR/versions/node/v7.1.0/share/man:/usr/share/man" ] || die "MANPATH not correctly replaced with regex-special NVM_DIR: $NEW_PATH "
