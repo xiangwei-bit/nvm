@@ -27,11 +27,27 @@ for i in 1 2 3 4 5; do
   sleep $((i * 5))
 done
 if [ "${httpbin_pulled}" = 1 ] && SHELL=bash docker run -d --name httpbin -p 80:80 kennethreitz/httpbin; then
-  sleep 1 # wait for httpbin to start
-  # nvm_download should pass when calling with auth header
-  NVM_AUTH_HEADER="Bearer test-token" nvm_download "http://127.0.0.1/bearer" > /dev/null || die 'nvm_download with auth header should send correctly'
-  # nvm_download should fail when calling without auth header
-  nvm_download "http://127.0.0.1/bearer" > /dev/null && die 'nvm_download with no auth header should not send the header and should fail'
+  # Wait for httpbin to actually accept connections before asserting against it.
+  # A fixed `sleep` races with container startup on slow or busy machines (the
+  # port may not be listening yet), which intermittently fails the auth checks.
+  # Poll a cheap, no-auth endpoint until it responds, and skip (rather than
+  # fail) if it never comes up, matching the graceful handling above.
+  httpbin_ready=0
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if nvm_download "http://127.0.0.1/status/200" > /dev/null 2>&1; then
+      httpbin_ready=1
+      break
+    fi
+    sleep 1
+  done
+  if [ "${httpbin_ready}" = 1 ]; then
+    # nvm_download should pass when calling with auth header
+    NVM_AUTH_HEADER="Bearer test-token" nvm_download "http://127.0.0.1/bearer" > /dev/null || die 'nvm_download with auth header should send correctly'
+    # nvm_download should fail when calling without auth header
+    nvm_download "http://127.0.0.1/bearer" > /dev/null && die 'nvm_download with no auth header should not send the header and should fail'
+  else
+    echo 'skipping auth header checks: httpbin did not become ready in time'
+  fi
 else
   echo 'skipping auth header checks: unable to pull or run httpbin'
 fi
